@@ -18,10 +18,11 @@ import java.util.Objects;
  * @author Zhang Yunpeng
  * @date 2022/4/20
  */
-public class HTMLParser
+@SuppressWarnings("AlibabaClassNamingShouldBeCamel")
+public final class HTMLParser
 {
-    public OkHttpClient client;
-    public Document document;
+    private final OkHttpClient client;
+    private Document document;
     public String url;
     public String selector;
     public ArrayList<String> elementsText;
@@ -33,65 +34,69 @@ public class HTMLParser
         this.selector = selector;
     }
 
+    /**
+     * 异步GET
+     */
     public void getAsync()
     {
-        if (this.url == null)
+        if (this.url != null)
         {
-            return;
-        }
-        Request request = new FakeRequestBuilder(this.url).get().build();
-        Call call = client.newCall(request);
-        call.enqueue(new Callback()
-        {
-            @Override
-            public void onFailure(@NotNull Call call, @NotNull IOException e)
+            Request request = new FakeRequestBuilder(this.url).get().build();
+            Call call = client.newCall(request);
+            call.enqueue(new Callback()
             {
-                Log logger = LogFactory.getLog(this.getClass());
-                logger.error("GET " + url + " failed ", e);
-            }
-
-            @Override
-            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException
-            {
-                if (!response.isSuccessful())
+                @Override
+                public void onFailure(@NotNull Call call, @NotNull IOException e)
                 {
                     Log logger = LogFactory.getLog(this.getClass());
-                    logger.error("GET" + url + " " + response.code());
-                } else
+                    logger.error("GET " + url + " failed ", e);
+                }
+
+                @Override
+                public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException
                 {
-                    document = Jsoup.parse(Objects.requireNonNull(response.body()).string());
-                    Elements elements = document.select(selector);
-                    for (Element e : elements)
+                    if (!response.isSuccessful())
                     {
-                        elementsText.add(e.text());
+                        Log logger = LogFactory.getLog(this.getClass());
+                        logger.error("GET" + url + " " + response.code());
+                    } else
+                    {
+                        document = Jsoup.parse(Objects.requireNonNull(response.body()).string());
+                        Elements elements = document.select(selector);
+                        for (Element e : elements)
+                        {
+                            elementsText.add(e.text());
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     public ArrayList<String> getSync() throws IOException
     {
-        if (this.url == null)
+        ArrayList<String> result = null;
+        if (this.url != null)
         {
-            return null;
+            Request request = new FakeRequestBuilder(this.url).get().build();
+            Call call = client.newCall(request);
+            Response response = call.execute();
+            if (!response.isSuccessful())
+            {
+                Log logger = LogFactory.getLog(this.getClass());
+                logger.error("GET " + url + " " + response.code());
+            } else
+            {
+                document = Jsoup.parse(Objects.requireNonNull(response.body()).string());
+                Elements elements = document.select(this.selector);
+                for (Element e : elements)
+                {
+                    this.elementsText.add(e.text());
+                }
+                result = this.elementsText;
+            }
         }
-        Request request = new FakeRequestBuilder(this.url).get().build();
-        Call call = client.newCall(request);
-        Response response = call.execute();
-        if (!response.isSuccessful())
-        {
-            Log logger = LogFactory.getLog(this.getClass());
-            logger.error("GET " + url + " " + response.code());
-            return null;
-        }
-        document = Jsoup.parse(Objects.requireNonNull(response.body()).string());
-        Elements elements = document.select(this.selector);
-        for (Element e : elements)
-        {
-            this.elementsText.add(e.text());
-        }
-        return this.elementsText;
+        return result;
     }
 }
 
